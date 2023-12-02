@@ -1,120 +1,150 @@
+using System.Collections.Generic;
 using BepInEx;
-using R2API;
+using R2API.Networking;
+using R2API.Networking.Interfaces;
 using RoR2;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
+using UnityEngine.Networking;
 
 namespace DIBS
 {
-    [BepInDependency(ItemAPI.PluginGUID)]
-    [BepInDependency(LanguageAPI.PluginGUID)]
+    [BepInDependency(NetworkingAPI.PluginGUID)]
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
     public class DIBS : BaseUnityPlugin
     {
+        // Mod stuff
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "joeyvanlierop";
         public const string PluginName = "DIBS";
         public const string PluginVersion = "0.0.1";
+        
+        // This is the dictionary that keeps track of which players currently have dibs
+        private static Dictionary<NetworkInstanceId, NetworkInstanceId> dibs = new();
 
-        // We need our item definition to persist through our functions, and therefore make it a class field.
-        private static ItemDef myItemDef;
-
-        // The Awake() method is run at the very start when the game is initialized.
         public void Awake()
         {
-            // Init our logging class so that we can properly log for debugging
-            Log.Init(Logger);
+            NetworkingAPI.RegisterMessageType<SyncDibsMessage>();
 
-            // First let's define our item
-            myItemDef = ScriptableObject.CreateInstance<ItemDef>();
-
-            // Language Tokens, explained there https://risk-of-thunder.github.io/R2Wiki/Mod-Creation/Assets/Localization/
-            myItemDef.name = "EXAMPLE_CLOAKONKILL_NAME";
-            myItemDef.nameToken = "EXAMPLE_CLOAKONKILL_NAME";
-            myItemDef.pickupToken = "EXAMPLE_CLOAKONKILL_PICKUP";
-            myItemDef.descriptionToken = "EXAMPLE_CLOAKONKILL_DESC";
-            myItemDef.loreToken = "EXAMPLE_CLOAKONKILL_LORE";
-
-            // The tier determines what rarity the item is:
-            // Tier1=white, Tier2=green, Tier3=red, Lunar=Lunar, Boss=yellow,
-            // and finally NoTier is generally used for helper items, like the tonic affliction
-#pragma warning disable Publicizer001 // Accessing a member that was not originally public. Here we ignore this warning because with how this example is setup we are forced to do this
-            myItemDef._itemTierDef = Addressables.LoadAssetAsync<ItemTierDef>("RoR2/Base/Common/Tier2Def.asset").WaitForCompletion();
-#pragma warning restore Publicizer001
-            // Instead of loading the itemtierdef directly, you can also do this like below as a workaround
-            // myItemDef.deprecatedTier = ItemTier.Tier2;
-
-            // You can create your own icons and prefabs through assetbundles, but to keep this boilerplate brief, we'll be using question marks.
-            myItemDef.pickupIconSprite = Addressables.LoadAssetAsync<Sprite>("RoR2/Base/Common/MiscIcons/texMysteryIcon.png").WaitForCompletion();
-            myItemDef.pickupModelPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/Base/Mystery/PickupMystery.prefab").WaitForCompletion();
-
-            // Can remove determines
-            // if a shrine of order,
-            // or a printer can take this item,
-            // generally true, except for NoTier items.
-            myItemDef.canRemove = true;
-
-            // Hidden means that there will be no pickup notification,
-            // and it won't appear in the inventory at the top of the screen.
-            // This is useful for certain noTier helper items, such as the DrizzlePlayerHelper.
-            myItemDef.hidden = false;
-
-            // You can add your own display rules here,
-            // where the first argument passed are the default display rules:
-            // the ones used when no specific display rules for a character are found.
-            // For this example, we are omitting them,
-            // as they are quite a pain to set up without tools like https://thunderstore.io/package/KingEnderBrine/ItemDisplayPlacementHelper/
-            var displayRules = new ItemDisplayRuleDict(null);
-
-            // Then finally add it to R2API
-            ItemAPI.Add(new CustomItem(myItemDef, displayRules));
-
-            // But now we have defined an item, but it doesn't do anything yet. So we'll need to define that ourselves.
-            GlobalEventManager.onCharacterDeathGlobal += GlobalEventManager_onCharacterDeathGlobal;
-            
-            On.RoR2.Interactor.PerformInteraction
+            On.RoR2.PingerController.SetCurrentPing += PingerController_SetCurrentPing;
+            On.RoR2.Stage.Start += Stage_Start;
+            On.RoR2.Interactor.AttemptInteraction += Interactor_AttemptInteraction;
         }
         
-        private void GlobalEventManager_onCharacterDeathGlobal(DamageReport report)
+        public static bool TryGetDibs(NetworkInstanceId playerId, out NetworkInstanceId targetId)
         {
-            // If a character was killed by the world, we shouldn't do anything.
-            if (!report.attacker || !report.attackerBody)
-            {
-                return;
-            }
+            return dibs.TryGetValue(playerId, out targetId);
+        }
 
-            var attackerCharacterBody = report.attackerBody;
+        public static void SetDibs(NetworkInstanceId playerId, NetworkInstanceId targetId)
+        {
+            Chat.AddMessage($"Set dibs: {playerId} {targetId}");
+            dibs[playerId] = targetId;
+        }
 
-            // We need an inventory to do check for our item
-            if (attackerCharacterBody.inventory)
+        public static void RemoveDibs(NetworkInstanceId playerId)
+        {
+            // GameObject obj = ClientScene.FindLocalObject(targetId);
+            dibs.Remove(playerId);
+        }
+        
+        public static void ClearDibs()
+        {
+            dibs.Clear();
+        }
+
+        private void PingerController_SetCurrentPing(On.RoR2.PingerController.orig_SetCurrentPing orig, PingerController controller, PingerController.PingInfo pingInfo)
+        {
+            Chat.AddMessage($"DEBUGP: {controller.name} {controller.netId}, {pingInfo.targetGameObject.name} {pingInfo.targetNetworkIdentity.netId} ");
+            if (pingInfo.targetGameObject)
             {
-                // Store the amount of our item we have
-                var garbCount = attackerCharacterBody.inventory.GetItemCount(myItemDef.itemIndex);
-                if (garbCount > 0 &&
-                    // Roll for our 50% chance.
-                    Util.CheckRoll(50, attackerCharacterBody.master))
+                var targetObject = pingInfo.targetGameObject;
+                
+                if (targetObject.GetComponent<ChestBehavior>() || targetObject.GetComponent<ShopTerminalBehavior>())
                 {
-                    // Since we passed all checks, we now give our attacker the cloaked buff.
-                    // Note how we are scaling the buff duration depending on the number of the custom item in our inventory.
-                    attackerCharacterBody.AddTimedBuff(RoR2Content.Buffs.Cloak, 3 + garbCount);
+                    if (TryGetDibs(controller.netId, out _))
+                    {
+                        Chat.AddMessage($"You already have dibs");
+                        return;
+                    }
+                    var targetIdentity = pingInfo.targetNetworkIdentity;
+                    new SyncDibsMessage(controller.netId, targetIdentity.netId).Send(NetworkDestination.Clients);
                 }
             }
+
+            orig(controller, pingInfo);
         }
 
-        // The Update() method is run on every frame of the game.
-        private void Update()
+        private void Stage_Start(On.RoR2.Stage.orig_Start orig, RoR2.Stage stage)
         {
-            // This if statement checks if the player has currently pressed F2.
-            if (Input.GetKeyDown(KeyCode.F2))
+            ClearDibs();
+
+            orig(stage);
+        }
+        
+        private void Interactor_AttemptInteraction(On.RoR2.Interactor.orig_AttemptInteraction orig, Interactor self, GameObject target)
+        {
+            
+            Chat.AddMessage($"DEBUGI: {self.name} {self.netId}, {target.name} {target.GetComponent<NetworkIdentity>().netId} ");
+            var purchaseInteraction = target.GetComponent<PurchaseInteraction>();
+            if (purchaseInteraction && purchaseInteraction.CanBeAffordedByInteractor(self))
             {
-                // Get the player body to use a position:
-                var transform = PlayerCharacterMasterController.instances[0].master.GetBodyObject().transform;
+                var playerId = self.netId;
+                var targetId = target.GetComponent<NetworkIdentity>().netId;
 
-                // And then drop our defined item in front of the player.
+                Chat.AddMessage(TryGetDibs(playerId, out var dibsId2)
+                    ? $"{playerId} has dibs on chest:  {dibsId2}"
+                    : $"{playerId} does not have dibs");
 
-                Log.Info($"Player pressed F2. Spawning our custom item at coordinates {transform.position}");
-                PickupDropletController.CreatePickupDroplet(PickupCatalog.FindPickupIndex(myItemDef.itemIndex), transform.position, transform.forward * 20f);
+                if (TryGetDibs(playerId, out var dibsId))
+                {
+                    if (dibsId != targetId)
+                    {
+                        Chat.AddMessage($"You have dibs on another chest: {playerId} {dibsId}");
+                        return;
+                    }
+                    
+                    Chat.AddMessage($"Removed dibs: {playerId} {dibsId}");
+                    RemoveDibs(playerId);
+                }
             }
+
+            orig(self, target);
         }
     }
+    
+    public class SyncDibsMessage : INetMessage
+    {
+        private NetworkInstanceId playerId;
+        private NetworkInstanceId targetId;
+        
+        public SyncDibsMessage()
+        {
+        }
+
+        public SyncDibsMessage(NetworkInstanceId playerId, NetworkInstanceId targetId)
+        {
+            this.playerId = playerId;
+            this.targetId = targetId;
+        }
+
+        public void Serialize(NetworkWriter writer)
+        {
+            Chat.AddMessage($"SEND Player: {playerId}, Chest: {targetId}");
+            writer.Write(playerId);
+            writer.Write(targetId);
+        }
+
+        public void Deserialize(NetworkReader reader)
+        {
+            playerId = reader.ReadNetworkId();
+            targetId = reader.ReadNetworkId();
+        }
+
+        public void OnReceived()
+        {
+            // GameObject targetObject = Util.FindNetworkObject(targetId);
+            DIBS.SetDibs(playerId, targetId);
+        }
+    }
+
 }
