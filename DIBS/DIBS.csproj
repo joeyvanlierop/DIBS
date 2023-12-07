@@ -73,7 +73,7 @@
     </Reference>
   </ItemGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <OutDir>C:\Users\joeyv\AppData\Roaming\r2modmanPlus-local\RiskOfRain2\profiles\QoL\BepInEx\plugins\DIBS</OutDir>
+    <OutDir>C:\Users\joeyv\AppData\Roaming\r2modmanPlus-local\RiskOfRain2\profiles\Dibs\BepInEx\plugins\DIBS</OutDir>
   </PropertyGroup>
 
 </Project>

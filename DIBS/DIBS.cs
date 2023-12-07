@@ -1,8 +1,13 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using BepInEx;
 using RoR2;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
+using Console = System.Console;
+using Random = System.Random;
 
 namespace DIBS
 {
@@ -17,33 +22,55 @@ namespace DIBS
         
         // This is the dictionary that keeps track of which players currently have dibs
         private static Dictionary<NetworkInstanceId, NetworkInstanceId> dibs = new();
+        
+        // Lock stuff
+        static GameObject _purchaseLockPrefab;
+        readonly List<GameObject> _spawnedLockObjects = new();
 
         public void Awake()
         {
+            _purchaseLockPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/Base/Teleporters/PurchaseLock.prefab").WaitForCompletion();
+            
             On.RoR2.PingerController.SetCurrentPing += PingerController_SetCurrentPing;
             On.RoR2.Stage.Start += Stage_Start;
             On.RoR2.Interactor.AttemptInteraction += Interactor_AttemptInteraction;
             On.RoR2.Chat.UserChatMessage.ConstructChatString += Chat_UserChatMessage_ConstructChatString;
         }
         
-        public static bool TryGetDibs(NetworkInstanceId playerId, out NetworkInstanceId targetId)
+        public static NetworkInstanceId? GetDibber(NetworkInstanceId targetId)
+        {
+            if (!dibs.ContainsValue(targetId))
+            {
+                return null;
+            }
+            
+            var dibber = dibs.First(x => x.Value == targetId).Key;
+            return dibber;
+        }
+        
+        private bool TryGetDibs(NetworkInstanceId playerId, out NetworkInstanceId targetId)
         {
             return dibs.TryGetValue(playerId, out targetId);
         }
 
-        public static void SetDibs(NetworkInstanceId playerId, NetworkInstanceId targetId)
+        private void SetDibs(NetworkInstanceId playerId, NetworkInstanceId targetId)
         {
             Chat.AddMessage($"Set dibs: {playerId} {targetId}");
             dibs[playerId] = targetId;
+            
+            GameObject obj = ClientScene.FindLocalObject(targetId);
+            Chat.AddMessage($"DEBUG0");
+            var purchaseInteraction = obj.GetComponent<PurchaseInteraction>();
+            Chat.AddMessage($"DEBUG0.5");
+            LockInteractable(purchaseInteraction);
         }
 
-        public static void RemoveDibs(NetworkInstanceId playerId)
+        private static void RemoveDibs(NetworkInstanceId playerId)
         {
-            // GameObject obj = ClientScene.FindLocalObject(targetId);
             dibs.Remove(playerId);
         }
         
-        public static void ClearDibs()
+        private static void ClearDibs()
         {
             dibs.Clear();
         }
@@ -51,7 +78,16 @@ namespace DIBS
         private void PingerController_SetCurrentPing(On.RoR2.PingerController.orig_SetCurrentPing orig, PingerController controller, PingerController.PingInfo pingInfo)
         {
             var user = UsersHelper.GetUser(controller);
-            Chat.AddMessage($"DEBUGP: {user.name} {user.netId}, {pingInfo.targetGameObject.name} {pingInfo.targetNetworkIdentity.netId} ");
+            try
+            {
+                Chat.AddMessage(
+                    $"DEBUGP: {user.name} {user.netId}, {pingInfo.targetGameObject.name} {pingInfo.targetNetworkIdentity.netId} ");
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+
             if (pingInfo.targetGameObject)
             {
                 var targetObject = pingInfo.targetGameObject;
@@ -64,6 +100,7 @@ namespace DIBS
                         Chat.AddMessage($"You already have dibs");
                         return;
                     }
+                    
                     var target = pingInfo.targetNetworkIdentity;
                     SetDibs(user.netId, target.netId);
                 }
@@ -93,6 +130,13 @@ namespace DIBS
                     ? $"{playerId} has dibs on chest:  {dibsId2}"
                     : $"{playerId} does not have dibs");
 
+                var dibber = GetDibber(targetId);
+                if (dibber != null && dibber != playerId)
+                {
+                    Chat.AddMessage($"Chest has been dibbed by: {dibber}");
+                    return;
+                }
+                
                 if (TryGetDibs(playerId, out var dibsId))
                 {
                     if (dibsId != targetId)
@@ -120,6 +164,35 @@ namespace DIBS
             }
 
             return orig(message);
+        }
+        
+        private void LockInteractable(PurchaseInteraction purchaseInteraction)
+        {
+            Chat.AddMessage($"DEBUG1");
+            Chat.AddMessage($"DEBUG2");
+            Chat.AddMessage($"{purchaseInteraction} {_purchaseLockPrefab}");
+            GameObject lockObject;
+            try
+            {
+                lockObject = Instantiate(_purchaseLockPrefab, purchaseInteraction.transform.position, Quaternion.Euler(0f, 0f, 0f));
+            }
+            catch (Exception e)
+            {
+                Chat.AddMessage($"ERR: {e.Message}");
+                return;
+            }
+            Chat.AddMessage($"DEBUG3");
+            NetworkServer.Spawn(lockObject);
+            Chat.AddMessage($"DEBUG4");
+            // purchaseInteraction.NetworklockGameObject = lockObject;
+            // Chat.AddMessage($"DEBUG5");
+
+            _spawnedLockObjects.Add(lockObject);
+        }
+        
+        private void unlockInteractable(GameObject lockObject)
+        {
+            NetworkServer.Destroy(lockObject);
         }
     }
 }
