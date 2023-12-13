@@ -21,6 +21,10 @@ outdir = "../zip"
 source = "../CHANGELOG.md"
 target = "CHANGELOG.md"
 
+[[build.copy]]
+source = "../bin/Release/netstandard2.0/DIBS.dll"
+target = "plugins/DIBS/DIBS.dll"
+
 [publish]
 repository = "https://thunderstore.io"
 communities = ["riskofrain2"]
