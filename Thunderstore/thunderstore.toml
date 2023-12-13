@@ -22,7 +22,7 @@ source = "../CHANGELOG.md"
 target = "CHANGELOG.md"
 
 [[build.copy]]
-source = "../bin/Release/netstandard2.0/DIBS.dll"
+source = "../DIBS/bin/Release/netstandard2.0/DIBS.dll"
 target = "plugins/DIBS/DIBS.dll"
 
 [publish]
