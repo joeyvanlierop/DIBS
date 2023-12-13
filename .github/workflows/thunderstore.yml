@@ -28,13 +28,13 @@ jobs:
         run: dotnet tool install --global tcli --version 0.1.4
 
       - name: Get Bin Cache
-        uses: actions/cache@v3.6.0
+        uses: actions/cache@v3
         with:
           path: ./bin
           key: bin-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Setup Zip Cache
-        uses: actions/cache@v3.6.0
+        uses: actions/cache@v3
         with:
           path: ./zip
           key: zip-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
