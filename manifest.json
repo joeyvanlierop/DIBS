@@ -1,0 +1,13 @@
+﻿{
+  "name": "DIBS",
+  "authorName": "joeyvanlierop",
+  "displayName": "DIBS",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/joeyvanlierop/DIBS",
+  "description": "Defend Items (from) Being Stolen",
+  "dependencies": [
+    "bbepis-BepInExPack-5.4.2113",
+    "RiskofThunder-HookGenPatcher-1.2.3",
+    "RiskofThunder-R2API_Core-5.0.11",
+  ]
+}
