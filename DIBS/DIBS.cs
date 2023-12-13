@@ -119,6 +119,7 @@ public class DIBS : BaseUnityPlugin
         var claimer = _claimManager.GetClaimer(targetId);
         if (claimer != null && claimer != playerId)
         {
+            RoR2.Util.PlaySound(FailClaimSound, target);
             return;
         }
 
@@ -126,6 +127,7 @@ public class DIBS : BaseUnityPlugin
         // This handles the case where the object isn't claimed, but the user has an active claim
         if (_claimManager.TryGetClaim(playerId, out var claimedId) && claimedId != targetId)
         {
+            RoR2.Util.PlaySound(FailClaimSound, target);
             return;
         }
 
