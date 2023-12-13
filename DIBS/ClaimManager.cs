@@ -6,10 +6,16 @@ using UnityEngine.Networking;
 
 namespace DIBS;
 
-internal class ClaimManager(LockManager lockManager)
+internal class ClaimManager
 {
     // This is the dictionary that keeps track of which players currently have claims
     private Dictionary<NetworkInstanceId, NetworkInstanceId> _claims = new();
+    private LockManager _lockManager;
+
+    public ClaimManager(LockManager lockManager)
+    {
+        _lockManager = lockManager;
+    }
 
     public NetworkInstanceId? GetClaimer(NetworkInstanceId targetId)
     {
@@ -25,7 +31,7 @@ internal class ClaimManager(LockManager lockManager)
     {
         // Create the claim and destroy the lock
         _claims[playerId] = targetId;
-        lockManager.InstantiateLock(targetId);
+        _lockManager.InstantiateLock(targetId);
     }
 
     public void RemoveClaim(NetworkInstanceId playerId)
@@ -35,7 +41,7 @@ internal class ClaimManager(LockManager lockManager)
 
         // Remove the claim and destroy the lock
         _claims.Remove(playerId);
-        lockManager.DestroyLock(targetId);
+        _lockManager.DestroyLock(targetId);
     }
 
     public void ClearDibs()

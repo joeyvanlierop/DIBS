@@ -68,7 +68,7 @@ public class DIBS : BaseUnityPlugin
 
         // Guard for the object actually being claimable 
         // i.e. make sure its a chest, cradle, triple, chance, barrel, etc.
-        if (ClaimManager.IsValidObject(pingee))
+        if (!ClaimManager.IsValidObject(pingee))
         {
             orig(controller, pingInfo);
             return;
@@ -90,7 +90,6 @@ public class DIBS : BaseUnityPlugin
             return;
         }
 
-
         // You've passed the test!
         // Enjoy your claim
         var target = pingInfo.targetNetworkIdentity;
@@ -101,34 +100,44 @@ public class DIBS : BaseUnityPlugin
     }
 
 
-    private void Interactor_AttemptInteraction(Interactor.orig_AttemptInteraction orig, RoR2.Interactor self,
+    private void Interactor_AttemptInteraction(Interactor.orig_AttemptInteraction orig, RoR2.Interactor interactor,
         GameObject target)
     {
-        var user = UsersHelper.GetUser(self);
-        var purchaseInteraction = target.GetComponent<PurchaseInteraction>();
-        if (purchaseInteraction && purchaseInteraction.CanBeAffordedByInteractor(self))
+        // Guard for the object being purchasable 
+        // i.e. make sure its a chest, cradle, triple, chance, barrel, etc.
+        if (ClaimManager.IsValidObject(target))
         {
-            var playerId = user.netId;
-            var targetId = target.GetComponent<NetworkIdentity>().netId;
-
-            var dibber = _claimManager.GetClaimer(targetId);
-            if (dibber != null && dibber != playerId)
-            {
-                return;
-            }
-
-            if (_claimManager.TryGetClaim(playerId, out var dibsId))
-            {
-                if (dibsId != targetId)
-                {
-                    return;
-                }
-
-                _claimManager.RemoveClaim(playerId);
-            }
+            orig(interactor, target);
+            return;
         }
 
-        orig(self, target);
+        // Extract the purchase interaction from the target
+        var purchaseInteraction = target.GetComponent<PurchaseInteraction>();
+
+        // Guard for the user having enough money
+        if (!purchaseInteraction.CanBeAffordedByInteractor(interactor))
+        {
+            orig(interactor, target);
+            return;
+        }
+
+        
+        // Get the user and target network ids
+        var user = UsersHelper.GetUser(interactor);
+        var playerId = user.netId;
+        var targetId = target.GetComponent<NetworkIdentity>().netId;
+
+        // Guard for correct claim
+        // i.e. is the object claimed, and if so, does the interactor have dibs
+        var claimer = _claimManager.GetClaimer(targetId);
+        if (claimer != null && claimer != playerId)
+        {
+            return;
+        }
+
+        // Now we can redeem the claim
+        _claimManager.RemoveClaim(playerId);
+        orig(interactor, target);
     }
 
     private string Chat_UserChatMessage_ConstructChatString(

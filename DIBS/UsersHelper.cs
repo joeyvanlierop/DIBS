@@ -2,58 +2,57 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace DIBS
+namespace DIBS;
+
+public static class UsersHelper
 {
-    public static class UsersHelper
+    public static CharacterMaster GetUserMaster(CharacterBody body)
     {
-        public static CharacterMaster GetUserMaster(CharacterBody body)
+        foreach (var player in PlayerCharacterMasterController.instances.Select(p => p.master))
         {
-            foreach (var player in PlayerCharacterMasterController.instances.Select(p => p.master))
-            {
-                if (player.GetBody() == body)
-                    return player;
-            }
+            if (player.GetBody() == body)
+                return player;
+        }
 
+        return null;
+    }
+
+    public static Interactor GetUserInteractor(NetworkUser user)
+    {
+        if (!user || !user.master)
             return null;
-        }
 
-        public static Interactor GetUserInteractor(NetworkUser user)
-        {
-            if (!user || !user.master)
-                return null;
+        var body = user.master.GetBodyObject();
 
-            var body = user.master.GetBodyObject();
+        return body ? body.GetComponent<InteractionDriver>().interactor : null;
+    }
 
-            return body ? body.GetComponent<InteractionDriver>().interactor : null;
-        }
+    public static IEnumerable<NetworkUser> GetAllUsers()
+    {
+        return NetworkUser.readOnlyInstancesList;
+    }
 
-        public static IEnumerable<NetworkUser> GetAllUsers()
-        {
-            return NetworkUser.readOnlyInstancesList;
-        }
+    public static NetworkUser GetUser(CharacterMaster userMaster)
+    {
+        return NetworkUser.readOnlyInstancesList.FirstOrDefault(u => u.master == userMaster);
+    }
 
-        public static NetworkUser GetUser(CharacterMaster userMaster)
-        {
-            return NetworkUser.readOnlyInstancesList.FirstOrDefault(u => u.master == userMaster);
-        }
+    public static NetworkUser GetUser(CharacterBody userBody)
+    {
+        return GetUser(GetUserMaster(userBody));
+    }
 
-        public static NetworkUser GetUser(CharacterBody userBody)
-        {
-            return GetUser(GetUserMaster(userBody));
-        }
+    public static NetworkUser GetUser(Interactor userInteractor)
+    {
+        var body = userInteractor?.GetComponent<CharacterBody>();
 
-        public static NetworkUser GetUser(Interactor userInteractor)
-        {
-            var body = userInteractor?.GetComponent<CharacterBody>();
+        return GetUser(body);
+    }
 
-            return GetUser(body);
-        }
+    public static NetworkUser GetUser(PingerController userPinger)
+    {
+        var player = userPinger?.GetComponent<CharacterMaster>();
 
-        public static NetworkUser GetUser(PingerController userPinger)
-        {
-            var player = userPinger?.GetComponent<CharacterMaster>(); 
-
-            return GetUser(player);
-        }
+        return GetUser(player);
     }
 }

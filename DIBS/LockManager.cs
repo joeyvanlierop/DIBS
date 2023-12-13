@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using R2API;
 using RoR2;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -27,17 +29,15 @@ internal class LockManager
             var terminals = terminalBehavior.serverMultiShopController.terminalGameObjects;
             foreach (var terminal in terminals)
             {
-                GameObject lockObject = GameObject.Instantiate(_purchaseLockPrefab, terminal.transform.position,
-                    Quaternion.Euler(0f, 0f, 0f));
-                NetworkServer.Spawn(lockObject);
+                GameObject lockObject = _purchaseLockPrefab.InstantiateClone("LockObject");
+                lockObject.transform.position = terminal.transform.position;
                 lockObjects.Add(lockObject);
             }
         }
         else
         {
-            GameObject lockObject = GameObject.Instantiate(_purchaseLockPrefab, targetObject.transform.position,
-                Quaternion.Euler(0f, 0f, 0f));
-            NetworkServer.Spawn(lockObject);
+            GameObject lockObject = _purchaseLockPrefab.InstantiateClone("LockObject");
+            lockObject.transform.position = targetObject.transform.position;
             lockObjects.Add(lockObject);
         }
 
