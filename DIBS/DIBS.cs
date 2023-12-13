@@ -1,197 +1,145 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using BepInEx;
-using RoR2;
+using On.RoR2;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
-using Console = System.Console;
-using Random = System.Random;
+using NetworkUser = RoR2.NetworkUser;
+using PurchaseInteraction = RoR2.PurchaseInteraction;
 
-namespace DIBS
+namespace DIBS;
+
+[BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+public class DIBS : BaseUnityPlugin
 {
-    [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
-    public class DIBS : BaseUnityPlugin
+    // Mod stuff
+    public const string PluginGuid = PluginAuthor + "." + PluginName;
+    public const string PluginAuthor = "joeyvanlierop";
+    public const string PluginName = "DIBS";
+    public const string PluginVersion = "0.0.1";
+
+    // Managers
+    private readonly ClaimManager _claimManager;
+
+    public DIBS()
     {
-        // Mod stuff
-        public const string PluginGUID = PluginAuthor + "." + PluginName;
-        public const string PluginAuthor = "joeyvanlierop";
-        public const string PluginName = "DIBS";
-        public const string PluginVersion = "0.0.1";
+        LockManager lockManager = new();
+        _claimManager = new ClaimManager(lockManager);
+    }
 
-        // This is the dictionary that keeps track of which players currently have dibs
-        private Dictionary<NetworkInstanceId, NetworkInstanceId> dibs = new();
+    public void OnEnable()
+    {
+        Stage.Start += Stage_Start;
+        PingerController.SetCurrentPing += PingerController_SetCurrentPing;
+        Interactor.AttemptInteraction += Interactor_AttemptInteraction;
+        Chat.UserChatMessage.ConstructChatString += Chat_UserChatMessage_ConstructChatString;
+    }
 
-        // Lock stuff
-        private GameObject _purchaseLockPrefab;
-        private Dictionary<NetworkInstanceId, GameObject> locks = new();
+    public void OnDisable()
+    {
+        Stage.Start -= Stage_Start;
+        PingerController.SetCurrentPing -= PingerController_SetCurrentPing;
+        Interactor.AttemptInteraction -= Interactor_AttemptInteraction;
+        Chat.UserChatMessage.ConstructChatString -= Chat_UserChatMessage_ConstructChatString;
+    }
 
-        public void Awake()
+    private void Stage_Start(Stage.orig_Start orig, RoR2.Stage stage)
+    {
+        // Start from a clean slate at the start of each stage
+        _claimManager.ClearDibs();
+
+        // And definitely do not remove this
+        orig(stage);
+    }
+
+    private void PingerController_SetCurrentPing(PingerController.orig_SetCurrentPing orig,
+        RoR2.PingerController controller, RoR2.PingerController.PingInfo pingInfo)
+    {
+        // This is the user that pinged
+        var pinger = UsersHelper.GetUser(controller);
+
+        // Guard for ping hitting something
+        if (pingInfo.targetGameObject)
         {
-            _purchaseLockPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/Base/Teleporters/PurchaseLock.prefab")
-                .WaitForCompletion();
-
-            On.RoR2.PingerController.SetCurrentPing += PingerController_SetCurrentPing;
-            On.RoR2.Stage.Start += Stage_Start;
-            On.RoR2.Interactor.AttemptInteraction += Interactor_AttemptInteraction;
-            On.RoR2.Chat.UserChatMessage.ConstructChatString += Chat_UserChatMessage_ConstructChatString;
-        }
-
-        public NetworkInstanceId? GetDibber(NetworkInstanceId targetId)
-        {
-            if (!dibs.ContainsValue(targetId))
-            {
-                return null;
-            }
-
-            var dibber = dibs.First(x => x.Value == targetId).Key;
-            return dibber;
-        }
-
-        private bool TryGetDibs(NetworkInstanceId playerId, out NetworkInstanceId targetId)
-        {
-            return dibs.TryGetValue(playerId, out targetId);
-        }
-
-        private void SetDibs(NetworkInstanceId playerId, NetworkInstanceId targetId)
-        {
-            Chat.AddMessage($"Set dibs: {playerId} {targetId}");
-            dibs[playerId] = targetId;
-
-            AddLock(targetId);
-        }
-
-        private void RemoveDibs(NetworkInstanceId playerId)
-        {
-            if (dibs.TryGetValue(playerId, out var targetId))
-            {
-                dibs.Remove(playerId);
-                RemoveLock(targetId);
-            }
-        }
-
-        private void ClearDibs()
-        {
-            foreach (var targetId in dibs.Keys)
-            {
-                RemoveDibs(targetId);
-            }
-        }
-
-        private void PingerController_SetCurrentPing(On.RoR2.PingerController.orig_SetCurrentPing orig,
-            PingerController controller, PingerController.PingInfo pingInfo)
-        {
-            var user = UsersHelper.GetUser(controller);
-            try
-            {
-                Chat.AddMessage(
-                    $"DEBUGP: {user.name} {user.netId}, {pingInfo.targetGameObject.name} {pingInfo.targetNetworkIdentity.netId} ");
-            }
-            catch (Exception)
-            {
-                // ignored
-            }
-
-            if (pingInfo.targetGameObject)
-            {
-                var targetObject = pingInfo.targetGameObject;
-
-                if ((targetObject.GetComponent<ChestBehavior>() || targetObject.GetComponent<ShopTerminalBehavior>() ||
-                     targetObject.GetComponent<ShrineChanceBehavior>()) && !targetObject.name.Contains("Lockbox"))
-                {
-                    if (TryGetDibs(user.netId, out _))
-                    {
-                        Chat.AddMessage($"You already have dibs");
-                        return;
-                    }
-
-                    var target = pingInfo.targetNetworkIdentity;
-                    SetDibs(user.netId, target.netId);
-                }
-            }
-
             orig(controller, pingInfo);
+            return;
         }
 
-        private void Stage_Start(On.RoR2.Stage.orig_Start orig, RoR2.Stage stage)
-        {
-            ClearDibs();
+        // This is the object that the pingee hit
+        var pingee = pingInfo.targetGameObject;
 
-            orig(stage);
+        // Guard for the object actually being claimable 
+        // i.e. make sure its a chest, cradle, triple, chance, barrel, etc.
+        if (ClaimManager.IsValidObject(pingee))
+        {
+            orig(controller, pingInfo);
+            return;
         }
 
-        private void Interactor_AttemptInteraction(On.RoR2.Interactor.orig_AttemptInteraction orig, Interactor self,
-            GameObject target)
+        // Guard for the user having an active claim 
+        // (dont let the user claim multiple chests)
+        if (_claimManager.TryGetClaim(pinger.netId, out _))
         {
-            var user = UsersHelper.GetUser(self);
-            Chat.AddMessage(
-                $"DEBUGI: {user.name} {user.netId}, {target.name} {target.GetComponent<NetworkIdentity>().netId} ");
-            var purchaseInteraction = target.GetComponent<PurchaseInteraction>();
-            if (purchaseInteraction && purchaseInteraction.CanBeAffordedByInteractor(self))
+            orig(controller, pingInfo);
+            return;
+        }
+
+        // Guard for the object already being claimed
+        // (dont let someone else steal the claim)
+        if (_claimManager.GetClaimer(pingInfo.targetNetworkIdentity.netId) != null)
+        {
+            orig(controller, pingInfo);
+            return;
+        }
+
+
+        // You've passed the test!
+        // Enjoy your claim
+        var target = pingInfo.targetNetworkIdentity;
+        _claimManager.SetClaim(pinger.netId, target.netId);
+
+        // ...and pass on the ping
+        orig(controller, pingInfo);
+    }
+
+
+    private void Interactor_AttemptInteraction(Interactor.orig_AttemptInteraction orig, RoR2.Interactor self,
+        GameObject target)
+    {
+        var user = UsersHelper.GetUser(self);
+        var purchaseInteraction = target.GetComponent<PurchaseInteraction>();
+        if (purchaseInteraction && purchaseInteraction.CanBeAffordedByInteractor(self))
+        {
+            var playerId = user.netId;
+            var targetId = target.GetComponent<NetworkIdentity>().netId;
+
+            var dibber = _claimManager.GetClaimer(targetId);
+            if (dibber != null && dibber != playerId)
             {
-                var playerId = user.netId;
-                var targetId = target.GetComponent<NetworkIdentity>().netId;
+                return;
+            }
 
-                Chat.AddMessage(TryGetDibs(playerId, out var dibsId2)
-                    ? $"{playerId} has dibs on chest:  {dibsId2}"
-                    : $"{playerId} does not have dibs");
-
-                var dibber = GetDibber(targetId);
-                if (dibber != null && dibber != playerId)
+            if (_claimManager.TryGetClaim(playerId, out var dibsId))
+            {
+                if (dibsId != targetId)
                 {
-                    Chat.AddMessage($"Chest has been dibbed by: {dibber}");
                     return;
                 }
 
-                if (TryGetDibs(playerId, out var dibsId))
-                {
-                    if (dibsId != targetId)
-                    {
-                        Chat.AddMessage($"You have dibs on another chest: {playerId} {dibsId}");
-                        return;
-                    }
-
-                    Chat.AddMessage($"Removed dibs: {playerId} {dibsId}");
-                    RemoveDibs(playerId);
-                }
-            }
-
-            orig(self, target);
-        }
-
-        private string Chat_UserChatMessage_ConstructChatString(
-            On.RoR2.Chat.UserChatMessage.orig_ConstructChatString orig, Chat.UserChatMessage message)
-        {
-            if (message.text.Contains("undibs"))
-            {
-                Chat.AddMessage($"DEBUG UNDIBS: {message.sender}");
-                var user = message.sender.GetComponent<NetworkUser>();
-                Chat.AddMessage($"Removing dibs for user: {user.netId}");
-                RemoveDibs(user.netId);
-            }
-
-            return orig(message);
-        }
-
-        private void AddLock(NetworkInstanceId targetId)
-        {
-            var targetObject = ClientScene.FindLocalObject(targetId);
-            
-            var purchaseInteraction = targetObject.GetComponent<PurchaseInteraction>();
-            GameObject lockObject = Instantiate(_purchaseLockPrefab, purchaseInteraction.transform.position,
-                Quaternion.Euler(0f, 0f, 0f));
-            NetworkServer.Spawn(lockObject);
-
-            locks.Add(targetId, lockObject);
-        }
-
-        private void RemoveLock(NetworkInstanceId targetId)
-        {
-            if(locks.TryGetValue(targetId, out var lockObject))
-            {
-                NetworkServer.Destroy(lockObject);
+                _claimManager.RemoveClaim(playerId);
             }
         }
+
+        orig(self, target);
+    }
+
+    private string Chat_UserChatMessage_ConstructChatString(
+        Chat.UserChatMessage.orig_ConstructChatString orig, RoR2.Chat.UserChatMessage message)
+    {
+        if (message.text.Contains("undibs"))
+        {
+            var user = message.sender.GetComponent<NetworkUser>();
+            _claimManager.RemoveClaim(user.netId);
+        }
+
+        return orig(message);
     }
 }
