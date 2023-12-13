@@ -11,16 +11,15 @@ jobs:
   build:
     uses: ./.github/workflows/dotnet-publish.yml
 
-#  release-thunderstore:
-#    needs: build
-#    uses: ./.github/workflows/thunderstore.yml
-#    with:
-#      version: ${{ needs.build.outputs.version }}
-#    secrets:
-#      THUNDERSTORE_TOKEN: ${{ secrets.THUNDERSTORE_TOKEN }}
+  release-thunderstore:
+    needs: build
+    uses: ./.github/workflows/thunderstore.yml
+    with:
+      version: ${{ needs.build.outputs.version }}
+    secrets:
+      THUNDERSTORE_TOKEN: ${{ secrets.THUNDERSTORE_TOKEN }}
 
   release-github:
-#    needs: release-thunderstore
     permissions: write-all
-    needs: build
+    needs: release-thunderstore
     uses: ./.github/workflows/release.yml
