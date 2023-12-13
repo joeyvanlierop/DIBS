@@ -53,9 +53,6 @@ public class DIBS : BaseUnityPlugin
     private void PingerController_SetCurrentPing(PingerController.orig_SetCurrentPing orig,
         RoR2.PingerController controller, RoR2.PingerController.PingInfo pingInfo)
     {
-        // This is the user that pinged
-        var pinger = UsersHelper.GetUser(controller);
-
         // Guard for ping hitting something
         if (pingInfo.targetGameObject)
         {
@@ -63,8 +60,8 @@ public class DIBS : BaseUnityPlugin
             return;
         }
 
-        // This is the object that the pingee hit
-        var pingee = pingInfo.targetGameObject;
+        var pinger = UsersHelper.GetUser(controller); // This is the user that pinged
+        var pingee = pingInfo.targetGameObject; // This is the object that the pingee hit
 
         // Guard for the object actually being claimable 
         // i.e. make sure its a chest, cradle, triple, chance, barrel, etc.
@@ -134,8 +131,13 @@ public class DIBS : BaseUnityPlugin
             return;
         }
 
-        // Now we can redeem the claim
-        _claimManager.RemoveClaim(playerId);
+        // Now we can redeem the claim if needed
+        if (claimer == playerId)
+        {
+            _claimManager.RemoveClaim(playerId);
+        }
+
+        // ...and finally continue the interaction
         orig(interactor, target);
     }
 
