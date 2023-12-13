@@ -1,7 +1,5 @@
-﻿using System;
+﻿using RoR2;
 using System.Collections.Generic;
-using R2API;
-using RoR2;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Networking;
@@ -12,11 +10,11 @@ internal class LockManager
 {
     // Locks are the visual indicator for dibs
     // They are handled independently which is kinda awkward
-    private GameObject _purchaseLockPrefab = Addressables
+    private readonly GameObject _purchaseLockPrefab = Addressables
         .LoadAssetAsync<GameObject>("RoR2/Base/Teleporters/PurchaseLock.prefab")
         .WaitForCompletion();
 
-    private Dictionary<NetworkInstanceId, List<GameObject>> _idToLocks = new();
+    private readonly Dictionary<NetworkInstanceId, List<GameObject>> _idToLocks = new();
 
     public void InstantiateLock(NetworkInstanceId targetId)
     {
@@ -29,30 +27,30 @@ internal class LockManager
             var terminals = terminalBehavior.serverMultiShopController.terminalGameObjects;
             foreach (var terminal in terminals)
             {
-                GameObject lockObject = _purchaseLockPrefab.InstantiateClone("LockObject");
-                lockObject.transform.position = terminal.transform.position;
+                var lockObject = Object.Instantiate(_purchaseLockPrefab, terminal.transform.position, Quaternion.identity);
+                NetworkServer.Spawn(lockObject);
                 lockObjects.Add(lockObject);
             }
         }
         else
         {
-            GameObject lockObject = _purchaseLockPrefab.InstantiateClone("LockObject");
-            lockObject.transform.position = targetObject.transform.position;
+            var lockObject = Object.Instantiate(_purchaseLockPrefab, targetObject.transform.position, Quaternion.identity);
+            NetworkServer.Spawn(lockObject);
             lockObjects.Add(lockObject);
         }
 
-
-        _idToLocks.Add(targetId, lockObjects);
+        _idToLocks[targetId] = lockObjects;
     }
 
     public void DestroyLock(NetworkInstanceId targetId)
     {
-        if (_idToLocks.TryGetValue(targetId, out var lockObjects))
+        if (!_idToLocks.TryGetValue(targetId, out var lockObjects)) return;
+        
+        foreach (var lockObject in lockObjects)
         {
-            foreach (var lockObject in lockObjects)
-            {
-                NetworkServer.Destroy(lockObject);
-            }
+            NetworkServer.Destroy(lockObject);
         }
+
+        _idToLocks.Remove(targetId);
     }
 }

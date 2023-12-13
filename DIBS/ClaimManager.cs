@@ -19,7 +19,11 @@ internal class ClaimManager
 
     public NetworkInstanceId? GetClaimer(NetworkInstanceId targetId)
     {
-        return _claims.FirstOrDefault(x => x.Value == targetId).Key;
+        if (!_claims.ContainsValue(targetId))
+        {
+            return null;
+        }
+        return _claims.First(x => x.Value == targetId).Key;
     }
 
     public bool TryGetClaim(NetworkInstanceId playerId, out NetworkInstanceId targetId)

@@ -17,28 +17,24 @@ public class DIBS : BaseUnityPlugin
     public const string PluginVersion = "0.0.1";
 
     // This is the central claiming authority
-    private readonly ClaimManager _claimManager;
-
-    public DIBS()
-    {
-        LockManager lockManager = new();
-        _claimManager = new ClaimManager(lockManager);
-    }
+    private ClaimManager _claimManager;
+    
+    // Sound bites
+    private const string NewClaimSound = "Play_gravekeeper_attack2_shoot_singleChain";
+    private const string RedeemClaimSound = "Play_gravekeeper_attack2_shoot_singleChain";
+    private const string FailClaimSound = "Play_UI_insufficient_funds";
 
     public void OnEnable()
     {
+        // Create our claim manager
+        LockManager lockManager = new();
+        _claimManager = new ClaimManager(lockManager);
+
+        // Set up all of our hooks
         Stage.Start += Stage_Start;
         PingerController.SetCurrentPing += PingerController_SetCurrentPing;
         Interactor.AttemptInteraction += Interactor_AttemptInteraction;
         Chat.UserChatMessage.ConstructChatString += Chat_UserChatMessage_ConstructChatString;
-    }
-
-    public void OnDisable()
-    {
-        Stage.Start -= Stage_Start;
-        PingerController.SetCurrentPing -= PingerController_SetCurrentPing;
-        Interactor.AttemptInteraction -= Interactor_AttemptInteraction;
-        Chat.UserChatMessage.ConstructChatString -= Chat_UserChatMessage_ConstructChatString;
     }
 
     private void Stage_Start(Stage.orig_Start orig, RoR2.Stage stage)
@@ -53,19 +49,12 @@ public class DIBS : BaseUnityPlugin
     private void PingerController_SetCurrentPing(PingerController.orig_SetCurrentPing orig,
         RoR2.PingerController controller, RoR2.PingerController.PingInfo pingInfo)
     {
-        // Guard for ping hitting something
-        if (pingInfo.targetGameObject)
-        {
-            orig(controller, pingInfo);
-            return;
-        }
-
         var pinger = UsersHelper.GetUser(controller); // This is the user that pinged
-        var pingee = pingInfo.targetGameObject; // This is the object that the pingee hit
+        var pinged = pingInfo.targetGameObject; // This is the object that the pinger hit
 
-        // Guard for the object actually being claimable 
-        // i.e. make sure its a chest, cradle, triple, chance, barrel, etc.
-        if (!ClaimManager.IsValidObject(pingee))
+        // Guard for the pinging a claimable object 
+        // (make sure its a chest, cradle, triple, chance, barrel, etc.)
+        if (pinged == null || !ClaimManager.IsValidObject(pinged))
         {
             orig(controller, pingInfo);
             return;
@@ -75,14 +64,16 @@ public class DIBS : BaseUnityPlugin
         // (dont let the user claim multiple chests)
         if (_claimManager.TryGetClaim(pinger.netId, out _))
         {
+            RoR2.Util.PlaySound(FailClaimSound, pinged);
             orig(controller, pingInfo);
             return;
         }
 
         // Guard for the object already being claimed
-        // (dont let someone else steal the claim)
+        // (only one claim can exist per object)
         if (_claimManager.GetClaimer(pingInfo.targetNetworkIdentity.netId) != null)
         {
+            RoR2.Util.PlaySound(FailClaimSound, pinged);
             orig(controller, pingInfo);
             return;
         }
@@ -91,11 +82,11 @@ public class DIBS : BaseUnityPlugin
         // Enjoy your claim
         var target = pingInfo.targetNetworkIdentity;
         _claimManager.SetClaim(pinger.netId, target.netId);
+        RoR2.Util.PlayAttackSpeedSound(NewClaimSound, pinged, 1);
 
         // ...and pass on the ping
         orig(controller, pingInfo);
     }
-
 
     private void Interactor_AttemptInteraction(Interactor.orig_AttemptInteraction orig, RoR2.Interactor interactor,
         GameObject target)
@@ -117,7 +108,7 @@ public class DIBS : BaseUnityPlugin
             orig(interactor, target);
             return;
         }
-        
+
         // Get the user and target network ids
         var user = UsersHelper.GetUser(interactor);
         var playerId = user.netId;
@@ -131,10 +122,18 @@ public class DIBS : BaseUnityPlugin
             return;
         }
 
+        // Guard for interactor having another claim
+        // This handles the case where the object isn't claimed, but the user has an active claim
+        if (_claimManager.TryGetClaim(playerId, out var claimedId) && claimedId != targetId)
+        {
+            return;
+        }
+
         // Now we can redeem the claim if needed
         if (claimer == playerId)
         {
             _claimManager.RemoveClaim(playerId);
+            RoR2.Util.PlayAttackSpeedSound(RedeemClaimSound, target, 1);
         }
 
         // ...and finally continue the interaction
