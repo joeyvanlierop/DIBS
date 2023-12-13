@@ -10,13 +10,13 @@ namespace DIBS;
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
 public class DIBS : BaseUnityPlugin
 {
-    // Mod stuff
+    // Mod metadata stuff
     public const string PluginGuid = PluginAuthor + "." + PluginName;
     public const string PluginAuthor = "joeyvanlierop";
     public const string PluginName = "DIBS";
     public const string PluginVersion = "0.0.1";
 
-    // Managers
+    // This is the central claiming authority
     private readonly ClaimManager _claimManager;
 
     public DIBS()
