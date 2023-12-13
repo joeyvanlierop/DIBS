@@ -2,7 +2,7 @@
 schemaVersion = "0.0.1"
 
 [package]
-namespace = "DIBS"
+namespace = "joeyvanlierop"
 name = "DIBS"
 versionNumber = "1.0.0"
 description = "Defend Items (from) Being Stolen"

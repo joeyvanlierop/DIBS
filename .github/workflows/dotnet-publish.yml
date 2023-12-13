@@ -31,13 +31,13 @@ jobs:
           versionSpec: '5.x'
 
       - name: Setup Bin Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v3.6.0
         with:
           path: ./bin
           key: bin-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Setup NuGet Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v3.6.0
         with:
           path: ./nuget
           key: nuget-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -50,7 +50,6 @@ jobs:
 
       - name: Update Version
         run: sed -i "s/public const string Version = \".*\"/public const string Version = \"${{ steps.gitversion.outputs.MajorMinorPatch }}\"/" DIBS/DIBS.cs
-
 
       - name: Restore dependencies
         run: dotnet restore
