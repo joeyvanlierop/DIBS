@@ -9,11 +9,11 @@ on:
 
 jobs:
   build:
-    uses: ./dotnet.yml
+    uses: ./.github/workflows/dotnet.yml
 
   release-thunderstore:
     needs: build
-    uses: ./thunderstore.yml
+    uses: ./.github/workflows/thunderstore.yml
     with:
       version: ${{ needs.build.outputs.version }}
     secrets:
@@ -21,4 +21,4 @@ jobs:
 
   release-github:
     needs: release-thunderstore
-    uses: ./release.yml
+    uses: ./.github/workflows/release.yml
