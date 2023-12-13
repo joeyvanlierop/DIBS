@@ -1,6 +1,6 @@
 # DIBS
 
-Do you have a honourable friend group who respects eachothers claims on chests, void cradles, and gambling shrines? Neither do I!
+Do you have a honourable friend group who respects each others claims on chests, void cradles, and gambling shrines? Neither do I!
 
 **D**efend **I**tems from **B**eing **S**tolen (DIBS) is the perfect way to keep your friend group intact. No longer will you call dibs on an chest, only for Max to steal it 2 seconds later and blame it on Discord delay.
 
