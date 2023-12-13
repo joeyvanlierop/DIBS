@@ -120,7 +120,6 @@ public class DIBS : BaseUnityPlugin
             orig(interactor, target);
             return;
         }
-
         
         // Get the user and target network ids
         var user = UsersHelper.GetUser(interactor);
