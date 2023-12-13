@@ -1,4 +1,5 @@
-﻿name: Build and Release
+﻿# https://github.com/xoxfaby/BetterUI/blob/master/.github/workflows/build-and-release.yml
+name: Build and Release
 
 on:
   workflow_dispatch:
@@ -8,11 +9,11 @@ on:
 
 jobs:
   build:
-    uses: xoxfaby/actions/.github/workflows/dotnet-publish.yml@main
+    uses: ./dotnet.yml
 
   release-thunderstore:
     needs: build
-    uses: xoxfaby/actions/.github/workflows/thunderstore.yml@main
+    uses: ./thunderstore.yml
     with:
       version: ${{ needs.build.outputs.version }}
     secrets:
@@ -20,4 +21,4 @@ jobs:
 
   release-github:
     needs: release-thunderstore
-    uses: xoxfaby/actions/.github/workflows/release.yml@main
+    uses: ./release.yml
