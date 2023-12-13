@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/dotnet.yml
+    uses: ./.github/workflows/dotnet-publish.yml
 
   release-thunderstore:
     needs: build
