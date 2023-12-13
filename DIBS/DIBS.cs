@@ -105,7 +105,7 @@ public class DIBS : BaseUnityPlugin
     {
         // Guard for the object being purchasable 
         // i.e. make sure its a chest, cradle, triple, chance, barrel, etc.
-        if (ClaimManager.IsValidObject(target))
+        if (!ClaimManager.IsValidObject(target))
         {
             orig(interactor, target);
             return;
@@ -140,6 +140,8 @@ public class DIBS : BaseUnityPlugin
         orig(interactor, target);
     }
 
+    // Silly chat command
+    // TODO: Make this even sillier
     private string Chat_UserChatMessage_ConstructChatString(
         Chat.UserChatMessage.orig_ConstructChatString orig, RoR2.Chat.UserChatMessage message)
     {
