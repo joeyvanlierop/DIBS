@@ -1,9 +1,12 @@
 using BepInEx;
-using On.RoR2;
+using RoR2;
+using RoR2.Audio;
 using UnityEngine;
 using UnityEngine.Networking;
-using NetworkUser = RoR2.NetworkUser;
-using PurchaseInteraction = RoR2.PurchaseInteraction;
+using Chat = On.RoR2.Chat;
+using Interactor = On.RoR2.Interactor;
+using PingerController = On.RoR2.PingerController;
+using Stage = On.RoR2.Stage;
 
 namespace DIBS;
 
@@ -23,13 +26,18 @@ public class DIBS : BaseUnityPlugin
     private const string NewClaimSound = "Play_gravekeeper_attack2_shoot_singleChain";
     private const string RedeemClaimSound = "Play_gravekeeper_attack2_shoot_singleChain";
     private const string FailClaimSound = "Play_UI_insufficient_funds";
+    
+    // Networked Sounds
+    private readonly NetworkSoundEventDef NewClaimSoundNet = AssetsHelper.CreateNetworkSoundEventDef(NewClaimSound);
+    private readonly NetworkSoundEventDef RedeemClaimSoundNet = AssetsHelper.CreateNetworkSoundEventDef(RedeemClaimSound);
+    private readonly NetworkSoundEventDef FailClaimSoundNet = AssetsHelper.CreateNetworkSoundEventDef(FailClaimSound);
 
     public void OnEnable()
     {
         // Create our claim manager
         LockManager lockManager = new();
         _claimManager = new ClaimManager(lockManager);
-
+        
         // Set up all of our hooks
         Stage.Start += Stage_Start;
         PingerController.SetCurrentPing += PingerController_SetCurrentPing;
@@ -64,7 +72,7 @@ public class DIBS : BaseUnityPlugin
         // (dont let the user claim multiple chests)
         if (_claimManager.TryGetClaim(pinger.netId, out _))
         {
-            RoR2.Util.PlaySound(FailClaimSound, pinged);
+            Util.PlaySound(FailClaimSound, pinged);
             orig(controller, pingInfo);
             return;
         }
@@ -73,7 +81,7 @@ public class DIBS : BaseUnityPlugin
         // (only one claim can exist per object)
         if (_claimManager.GetClaimer(pingInfo.targetNetworkIdentity.netId) != null)
         {
-            RoR2.Util.PlaySound(FailClaimSound, pinged);
+            Util.PlaySound(FailClaimSound, pinged);
             orig(controller, pingInfo);
             return;
         }
@@ -82,7 +90,7 @@ public class DIBS : BaseUnityPlugin
         // Enjoy your claim
         var target = pingInfo.targetNetworkIdentity;
         _claimManager.SetClaim(pinger.netId, target.netId);
-        RoR2.Util.PlayAttackSpeedSound(NewClaimSound, pinged, 1);
+        Util.PlayAttackSpeedSound(NewClaimSound, pinged, 1);
 
         // ...and pass on the ping
         orig(controller, pingInfo);
@@ -119,7 +127,7 @@ public class DIBS : BaseUnityPlugin
         var claimer = _claimManager.GetClaimer(targetId);
         if (claimer != null && claimer != playerId)
         {
-            RoR2.Util.PlaySound(FailClaimSound, target);
+            EntitySoundManager.EmitSoundServer(FailClaimSoundNet.akId, target);
             return;
         }
 
@@ -127,17 +135,16 @@ public class DIBS : BaseUnityPlugin
         // This handles the case where the object isn't claimed, but the user has an active claim
         if (_claimManager.TryGetClaim(playerId, out var claimedId) && claimedId != targetId)
         {
-            RoR2.Util.PlaySound(FailClaimSound, target);
+            EntitySoundManager.EmitSoundServer(FailClaimSoundNet.akId, target);
             return;
         }
 
         // Now we can redeem the claim if needed
         if (claimer == playerId)
         {
+            EntitySoundManager.EmitSoundServer(RedeemClaimSoundNet.akId, target);
             _claimManager.RemoveClaim(playerId);
-            RoR2.Util.PlayAttackSpeedSound(RedeemClaimSound, target, 1);
         }
-
         
         // ...and finally continue the interaction
         orig(interactor, target);
