@@ -2,7 +2,7 @@
   "name": "DIBS",
   "authorName": "joeyvanlierop",
   "displayName": "DIBS",
-  "version_number": "1.0.3",
+  "version_number": "1.0.5",
   "website_url": "https://github.com/joeyvanlierop/DIBS",
   "description": "Deter Item Banditry System",
   "dependencies": [

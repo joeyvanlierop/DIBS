@@ -4,6 +4,7 @@ using RoR2.Audio;
 using UnityEngine;
 using UnityEngine.Networking;
 using Chat = On.RoR2.Chat;
+using GlobalEventManager = On.RoR2.GlobalEventManager;
 using Interactor = On.RoR2.Interactor;
 using PingerController = On.RoR2.PingerController;
 using Stage = On.RoR2.Stage;
@@ -43,6 +44,15 @@ public class DIBS : BaseUnityPlugin
         PingerController.SetCurrentPing += PingerController_SetCurrentPing;
         Interactor.PerformInteraction += Interactor_PerformInteraction;
         Chat.UserChatMessage.ConstructChatString += Chat_UserChatMessage_ConstructChatString;
+        GlobalEventManager.OnPlayerCharacterDeath += GlobalEventManager_OnPlayerCharacterDeath;
+    }
+
+    private void GlobalEventManager_OnPlayerCharacterDeath(GlobalEventManager.orig_OnPlayerCharacterDeath orig, RoR2.GlobalEventManager self, DamageReport damageReport, NetworkUser victim)
+    {
+        // Remove the dead players dibs (if they exist)
+        _claimManager.RemoveClaim(victim.netId);
+
+        orig(self, damageReport, victim);
     }
 
     private void Stage_Start(Stage.orig_Start orig, RoR2.Stage stage)

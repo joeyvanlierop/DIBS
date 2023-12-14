@@ -1,5 +1,11 @@
 # Changelog
 
+### v1.0.5
+- Remove dibs when a player dies
+
+### v1.0.4
+- Fix game-breaking error when clearing dibs at the start of a stage
+
 ### v1.0.3
 - Network the sounds that were only being played on the host
 
