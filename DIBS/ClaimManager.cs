@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using R2API.Utils;
 using RoR2;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -50,12 +51,10 @@ internal class ClaimManager
 
     public void ClearDibs()
     {
-        // A little verbose just to make sure we really cleanup the dibs
         // We cant just use the dictionaries built-in clear function
-        foreach (var targetId in _claims.Keys)
-        {
-            RemoveClaim(targetId);
-        }
+        // TODO: Review this, because it throws an error when new stage is called (I think)
+        //  Might have to do with host vs client?
+        _claims.Keys.ForEachTry(RemoveClaim);
     }
 
     public static bool IsValidObject(GameObject target)
