@@ -18,6 +18,9 @@ internal class LockManager
 
     public void InstantiateLock(NetworkInstanceId targetId)
     {
+        // We should only instantiate the lock on the server(?)
+        if (!NetworkServer.active) return;
+        
         var targetObject = ClientScene.FindLocalObject(targetId);
 
         List<GameObject> lockObjects = new();

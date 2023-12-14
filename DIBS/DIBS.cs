@@ -33,7 +33,7 @@ public class DIBS : BaseUnityPlugin
         // Set up all of our hooks
         Stage.Start += Stage_Start;
         PingerController.SetCurrentPing += PingerController_SetCurrentPing;
-        Interactor.AttemptInteraction += Interactor_AttemptInteraction;
+        Interactor.PerformInteraction += Interactor_PerformInteraction;
         Chat.UserChatMessage.ConstructChatString += Chat_UserChatMessage_ConstructChatString;
     }
 
@@ -88,7 +88,7 @@ public class DIBS : BaseUnityPlugin
         orig(controller, pingInfo);
     }
 
-    private void Interactor_AttemptInteraction(Interactor.orig_AttemptInteraction orig, RoR2.Interactor interactor,
+    private void Interactor_PerformInteraction(Interactor.orig_PerformInteraction orig, RoR2.Interactor interactor,
         GameObject target)
     {
         // Guard for the object being purchasable 
@@ -138,6 +138,7 @@ public class DIBS : BaseUnityPlugin
             RoR2.Util.PlayAttackSpeedSound(RedeemClaimSound, target, 1);
         }
 
+        
         // ...and finally continue the interaction
         orig(interactor, target);
     }
