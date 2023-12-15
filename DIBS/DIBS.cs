@@ -18,7 +18,7 @@ public class DIBS : BaseUnityPlugin
     public const string PluginGuid = PluginAuthor + "." + PluginName;
     public const string PluginAuthor = "joeyvanlierop";
     public const string PluginName = "DIBS";
-    public const string PluginVersion = "0.0.1";
+    public const string PluginVersion = "1.0.5";
 
     // This is the central claiming authority
     private ClaimManager _claimManager;
