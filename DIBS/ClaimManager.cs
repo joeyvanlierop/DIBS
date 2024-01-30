@@ -61,7 +61,7 @@ internal class ClaimManager
     {
         // TODO: Maybe swap the inner to be the guard?
         if ((target.GetComponent<ChestBehavior>() && !target.name.Contains("Lockbox")) ||
-            (target.GetComponent<ShopTerminalBehavior>() && !target.name.Contains("Duplicator")) ||
+            (target.GetComponent<ShopTerminalBehavior>() && !target.name.Contains("Duplicator") && !target.name.Contains("Cauldron")) ||
             (target.GetComponent<ShrineChanceBehavior>()))
         {
             var purchaseInteraction = target.GetComponent<PurchaseInteraction>();

@@ -1,5 +1,8 @@
 # Changelog
 
+### v1.0.6
+- Prevent players from placing dibs on lunar cauldrons
+
 ### v1.0.5
 - Remove dibs when a player dies
 
