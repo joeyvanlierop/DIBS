@@ -1,6 +1,6 @@
 # DIBS
 
-Do you have a honourable friend group who respects each others dibs? Neither do I!
+Do you have a honourable friend group who respects each others dibs? Neither do I.
 
 **D**efend **I**tems from **B**eing **S**tolen (DIBS) is the perfect way to keep your friend group intact. No longer will you call dibs on an chest, only for Max to steal it 2 seconds later and blame it on Discord delay.
 
@@ -12,5 +12,5 @@ To place dibs on an object, all you need to do is ping it. You will hear a locki
 3. Your dibs will be cleared once you have purchased the object
 4. You cannot purchase anything else until you have cleared your dibs
 
-If something goes spectacularly wrong, you can type `undibs` in chat and all of the dibs will be cleared. Just know that if you do this to get a better item, you are a bad person.
+If something goes wrong, type `undibs` in chat and all of the dibs will be cleared. Just know that if you do this to steal my item, you are a bad person.
 
